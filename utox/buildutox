@@ -1,0 +1,65 @@
+#!/bin/bash
+#based on the
+  #Libsodium DEB build script. Call without arguments.
+  #(c)2013 Uli Koehler. Licensed as CC-By-SA 3.0 DE.
+#extended in a major way by soul9@github
+
+#Download and update the repo
+if [ ! -d utox ]; then
+  git clone git://github.com/notsecure/utox.git utox
+else
+  cd utox
+  git pull
+  cd ..
+fi
+export NAME=utox
+export VERSION="$(date -u +'%s')"
+export VERSION="$VERSION-$(cd utox; git rev-parse HEAD |sed -r 's,(......).*,\1,')"
+export DEBVERSION=${VERSION}-0.1
+cp -a utox $NAME-$VERSION
+rm -fr $NAME-$VERSION/.git*
+tar czf ${NAME}_$VERSION.orig.tar.gz $NAME-$VERSION
+cd ${NAME}-${VERSION}
+rm -rf debian
+mkdir -p debian
+#Use the existing COPYING file
+cp LICENSE debian/copyright
+#Create the changelog (no messages - dummy)
+dch --create -v $DEBVERSION --package ${NAME} "initial bleh (just sayin' nmu to fix lintian warning)"
+#Create copyright file
+head -6 LICENSE > debian/copyright
+echo "see /usr/share/common-licenses/GPL-3 on your system for the full text of the GPLv3" >> debian/copyright
+#Create control file
+cat > debian/control << EOF
+Source: $NAME
+Maintainer: None <none@example.com>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 8), devscripts, d-shlibs, libtool, libtox0-dev, libx11-dev, pkg-config, libxft-dev, libfreetype6-dev, libv4l-dev, libopenal-dev
+
+#Main library package
+Package: $NAME
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}
+Homepage: https://github.com/notsecure/uTox
+Description: Lightweight Tox client
+ Lightweight Tox client with audio and video support
+EOF
+
+#Rules files
+cat > debian/rules << EOF
+#!/usr/bin/make -f
+%:
+	dh \$@
+override_dh_auto_make:
+	make CFLAGS="$CFLAGS -I/usr/include/freetype2/"
+override_dh_auto_install:
+	dh_auto_install
+EOF
+
+#Create some misc files
+mkdir -p debian/source
+echo "8" > debian/compat
+echo "3.0 (quilt)" > debian/source/format
+pdebuild --debbuildopts "-us -uc"

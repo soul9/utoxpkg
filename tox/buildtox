@@ -1,0 +1,110 @@
+#!/bin/bash
+#based on the
+  #Libsodium DEB build script. Call without arguments.
+  #(c)2013 Uli Koehler. Licensed as CC-By-SA 3.0 DE.
+#extended in a major way by soul9@github
+
+#Download and update the repo
+if [ ! -d tox ]
+then
+  git clone git://github.com/irungentoo/tox.git tox
+else
+  cd tox
+  git pull
+  cd  ..
+fi
+export NAME=libtox
+export SOVERSION=0
+export VERSION="$(date -u +'%s')"
+export VERSION="$VERSION-$(cd tox; git rev-parse HEAD |sed -r 's,(......).*,\1,')"
+export DEBVERSION=${VERSION}-0.1
+cp -a tox $NAME-$VERSION
+rm -fr $NAME-$VERSION/.git*
+tar czf ${NAME}_$VERSION.orig.tar.gz $NAME-$VERSION
+cd ${NAME}-${VERSION}
+rm -rf debian
+mkdir -p debian
+#Use the existing COPYING file
+cp COPYING debian/copyright
+#Create the changelog (no messages - dummy)
+dch --create -v $DEBVERSION --package ${NAME} "initial bleh (just sayin' nmu to fix lintian warning)"
+#Create copyright file
+head -6 COPYING > debian/copyright
+echo "see /usr/share/common-licenses/GPL-3 on your system for the full text of the GPLv3" >> debian/copyright
+#Create control file
+cat > debian/control << EOF
+Source: $NAME
+Maintainer: None <none@example.com>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 8), devscripts, autoconf, automake, d-shlibs, libtool, libvpx-dev, libopus-dev, libsodium10-dev, pkg-config
+
+#Main library package
+Package: libtoxcore$SOVERSION
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}
+Homepage: https://tox.im
+Description: tox instant messenger (core lib)
+ Tox takes your privacy seriously. With leading-class encryption, you
+ can rest assured knowing that the only people reading your messages
+ are the ones you send them to. (core lib)
+
+#Main library package
+Package: libtoxdns$SOVERSION
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}, libtoxcore$SOVERSION(= \${binary:Version})
+Homepage: https://tox.im
+Description: tox instant messenger (dns lib)
+ Tox takes your privacy seriously. With leading-class encryption, you
+ can rest assured knowing that the only people reading your messages
+ are the ones you send them to. (dns lib)
+
+#Main library package
+Package: libtoxav$SOVERSION
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}, libtoxcore$SOVERSION(= \${binary:Version}), libtoxdns$SOVERSION(= \${binary:Version})
+Homepage: https://tox.im
+Description: tox instant messenger (audio/video lib)
+ Tox takes your privacy seriously. With leading-class encryption, you
+ can rest assured knowing that the only people reading your messages
+ are the ones you send them to. (audio/video lib)
+
+#dev package
+Package: $NAME$SOVERSION-dev
+Section: libdevel
+Architecture: all
+Depends: \${misc:Depends}, libtoxcore$SOVERSION(= \${source:Version}), libtoxdns$SOVERSION(= \${source:Version}), libtoxav$SOVERSION(= \${source:Version}), libvpx-dev
+Homepage: https://tox.im
+Description: tox instant messenger development files
+ Tox takes your privacy seriously. With leading-class encryption, you
+ can rest assured knowing that the only people reading your messages
+ are the ones you send them to. (development files)
+EOF
+
+#Rules files
+cat > debian/rules << EOF
+#!/usr/bin/make -f
+%:
+	dh \$@
+override_dh_auto_configure:
+	./autogen.sh
+	dh_auto_configure
+override_dh_auto_install:
+	dh_auto_install
+	sed -i "/dependency_libs/ s/'.*'/''/" \`find debian/tmp -name '*.la'\`
+	dh_install -plibtoxav$SOVERSION usr/lib/libtoxav* usr/lib/
+	dh_install -plibtoxdns$SOVERSION usr/lib/libtoxdns* usr/lib/
+	dh_install -plibtoxcore$SOVERSION usr/lib/libtoxcore* usr/lib/
+	dh_install -plibtoxcore$SOVERSION usr/bin usr/
+	dh_install -p$NAME$SOVERSION-dev usr/include usr/
+EOF
+
+#Create some misc files
+mkdir -p debian/source
+echo "8" > debian/compat
+echo "3.0 (quilt)" > debian/source/format
+echo "libtoxcore $SOVERSION libtoxcore0" > debian/shlibs
+#generated using dpkg-gensymbols -plibtox -Odebian/libtox.symbols -q
+cp ../$NAME.symbols debian/
+pdebuild --debbuildopts "-us -uc"

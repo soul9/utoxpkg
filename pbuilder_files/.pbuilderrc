@@ -1,0 +1,4 @@
+HOOKDIR="/root/pbuilderhooks/"
+OTHERMIRROR="deb [trusted=yes] file:///root/localrepo ./"
+BINDMOUNTS="/root/localrepo"
+EXTRAPACKAGES="apt-utils"

@@ -1,0 +1,9 @@
+#!/bin/bash
+for i in sodium tox utox; do
+  cd $i
+  ./build$i || (
+    echo "fayul $i"
+    exit 1
+  )
+  cd ..
+done

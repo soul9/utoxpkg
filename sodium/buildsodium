@@ -1,0 +1,100 @@
+#!/bin/bash
+#Revision 1
+#Libsodium DEB build script. Call without arguments.
+#(c)2013 Uli Koehler. Licensed as CC-By-SA 3.0 DE.
+#extended in a major way by soul9@github
+export NAME=libsodium
+export SOVERSION=10
+export VERSION=0.5.0
+export DEBVERSION=${VERSION}-0.2
+#Download and extract the archive
+if [ ! -f ${NAME}_${VERSION}.orig.tar.gz ]
+then
+    wget --no-check-certificate "https://download.libsodium.org/libsodium/releases/${NAME}-${VERSION}.tar.gz" -O ${NAME}_${VERSION}.orig.tar.gz
+fi
+tar xzvf ${NAME}_${VERSION}.orig.tar.gz
+cd ${NAME}-${VERSION}
+rm -rf debian
+mkdir -p debian
+#Use the existing COPYING file
+cp LICENSE debian/copyright
+#Create the changelog (no messages - dummy)
+dch --create -v $DEBVERSION --package ${NAME} "initial bleh (just sayin' nmu to fix lintian warning)"
+#Create copyright file
+cp LICENSE debian/copyright
+#Create control file
+cat > debian/control << EOF
+Source: $NAME
+Maintainer: None <none@example.com>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.4
+Build-Depends: debhelper (>= 8), devscripts, autoconf, automake, d-shlibs, libtool
+
+#Main library package
+Package: $NAME$SOVERSION
+Architecture: any
+Depends: \${shlibs:Depends}, \${misc:Depends}
+Homepage: https://libsodium.org
+Description: libsodium
+ Sodium is a portable, cross-compilable, installable, packageable fork of NaCl
+ (based on the latest released upstream version nacl-20110221), with a
+ compatible API.The design choices, particularly in regard to the Curve25519
+ Diffie-Hellman function, emphasize security (whereas NIST curves emphasize
+ "performance" at the cost of security), and "magic constants" in NaCl/Sodium
+ have clear rationales.
+ .
+ The same cannot be said of NIST curves, where the specific origins of certain
+ constants are not described by the standards.
+ .
+ And despite the emphasis on higher security, primitives are faster
+ across-the-board than most implementations of the NIST standards.
+
+#dev package
+Package: $NAME$SOVERSION-dev
+Section: libdevel
+Architecture: all
+Depends: \${misc:Depends}, $NAME$SOVERSION(= \${source:Version})
+Homepage: https://libsodium.org
+Description: libsodium development files
+ Sodium is a portable, cross-compilable, installable, packageable fork of NaCl
+ (based on the latest released upstream version nacl-20110221), with a
+ compatible API.The design choices, particularly in regard to the Curve25519
+ Diffie-Hellman function, emphasize security (whereas NIST curves emphasize
+ "performance" at the cost of security), and "magic constants" in NaCl/Sodium
+ have clear rationales.
+ .
+ The same cannot be said of NIST curves, where the specific origins of certain
+ constants are not described by the standards.
+ .
+ And despite the emphasis on higher security, primitives are faster
+ across-the-board than most implementations of the NIST standards.
+ (development files)
+EOF
+
+#Rules files
+cat > debian/rules << EOF
+#!/usr/bin/make -f
+%:
+	dh \$@
+override_dh_auto_configure:
+	./autogen.sh
+	dh_auto_configure
+override_dh_auto_install:
+	dh_auto_install
+	dh_install -p$NAME$SOVERSION usr/lib/libsodium.a usr/lib/
+	dh_install -p$NAME$SOVERSION usr/lib/libsodium.la usr/lib/
+	sed -i "/dependency_libs/ s/'.*'/''/" \`find debian/$NAME$SOVERSION -name '*.la'\`
+	dh_install -p$NAME$SOVERSION usr/lib/libsodium.so* usr/lib/
+	dh_install -p$NAME$SOVERSION-dev usr/include usr/
+EOF
+
+#Create some misc files
+mkdir -p debian/source
+echo "8" > debian/compat
+echo "3.0 (quilt)" > debian/source/format
+echo "$NAME $SOVERSION $NAME$SOVERSION" > debian/shlibs
+#generated using dpkg-gensymbols -plibsodium10 -Odebian/libsodium.symbols -q
+#TODO: and duplicated for the symlink?
+cp ../$NAME.symbols debian/
+pdebuild --debbuildopts "-us -uc"

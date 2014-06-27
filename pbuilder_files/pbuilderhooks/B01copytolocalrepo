@@ -1,0 +1,4 @@
+#!/bin/bash
+#only copy files!
+cp -v /tmp/buildd/* /root/localrepo
+exit 0

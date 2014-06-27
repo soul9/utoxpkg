@@ -1,0 +1,4 @@
+#!/bin/bash
+cd /tmp/buildd/*/debian/..
+/bin/bash < /dev/tty > /dev/tty 2> /dev/tty
+exit 0
